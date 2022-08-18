@@ -1,0 +1,13 @@
+{
+    "offset": 446224778,
+    "chats": {
+        "143228339": {
+            "command": "Transponder",
+            "session": []
+        },
+        "": {
+            "command": "Start",
+            "session": []
+        }
+    }
+}
