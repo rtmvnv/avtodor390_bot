@@ -3,7 +3,7 @@
 https://t.me/avtodor390_bot
 
 ## Bot Status Tree
-![Bot Status Tree](http://www.plantuml.com/plantuml/proxy?src=https://github.com/rtmvnv/avtodor390_bot/blob/master/bot_tree.puml)
+![Bot Status Tree](http://www.plantuml.com/plantuml/proxy?src=https://raw.githubusercontent.com/rtmvnv/avtodor390_bot/master/bot_tree.puml)
 
 ## Process monitoring
 [Supervisor](http://supervisord.org/) is used to keep the script running.
