@@ -4,55 +4,46 @@ namespace Rtmvnv\AutodorBot\Commands;
 
 class Ckad extends Command
 {
-    public static function view($session)
+    public function view()
     {
-        $response = 'Задолженность для автомобиля А123ВС123 - 120 руб.' . PHP_EOL;
-        $response .= 'Задолженность для автомобиля В234СН234 - 227 руб.' . PHP_EOL;
-        $response .= PHP_EOL;
-        $response .= 'Выберите задолженность для оплаты:' . PHP_EOL;
-        $response .= '/1 Оплатить все' . PHP_EOL;
-        $response .= '/2 Оплатить А123ВС123' . PHP_EOL;
-        $response .= '/3 Оплатить В234СН234' . PHP_EOL;
-        $response .= '/8 Добавить автомобиль';
-        $response .= '/9 Удалить автомобиль';
+        $text = 'Задолженность за проезд по ЦКАД:' . PHP_EOL;
+        $text .= 'Автомобиль А123ВС123 - <b>120 руб.</b>' . PHP_EOL;
+        $text .= 'Автомобиль В234СН234 - <b>227 руб.</b>' . PHP_EOL;
+        $text .= PHP_EOL;
+        $text .= 'Выберите действие:' . PHP_EOL;
 
-        $keyboard = [
+        $keyboard = [];
+        $comission = 2;
+
+        $sum = 120;
+        $keyboard[] = [$this->addInlineButton(
+            'CkadPay',
             [
-                ['text' => '1'],
-                ['text' => '2'],
-                ['text' => '3'],
-            ], [
-                ['text' => 'Добавить автомобиль'],
-                ['text' => 'Удалить автомобиль'],
-            ],
-        ];
+                'vehicle' => 'А123ВС123',
+                'sum_nett' => $sum,
+                'comission' => 2,
+                'sum_gross' => $sum * (100 + $comission) / 100,
+                'purpose' => 'ckad',
+                'comment' => 'Оплата задолженности за проезд по ЦКАД автомобиля А123ВС123.',
+            ]
+        )];
 
-        return self::buildResponse($session, $response, $keyboard);
-    }
+        $sum = 227;
+        $keyboard[] = [$this->addInlineButton(
+            'CkadPay',
+            [
+                'vehicle' => 'В234СН234',
+                'sum_nett' => $sum,
+                'comission' => 2,
+                'sum_gross' => $sum * (100 + $comission) / 100,
+                'purpose' => 'ckad',
+                'comment' => 'Оплата задолженности за проезд по ЦКАД автомобиля В234СН234.',
+            ]
+        )];
 
-    public static function controller($session, $request)
-    {
-        switch ($request) {
-            case '/1':
-            case '1':
-                return Start::view($session);
-                break;
+        $keyboard[] = [$this->addInlineButton('CkadAdd', null)];
+        $keyboard[] = [$this->addInlineButton('CkadRemove', null)];
 
-            case 'Добавить автомобиль':
-            case '/8':
-            case '8':
-                return Start::view($session);
-                break;
-
-            case 'Удалить автомобиль':
-            case '/9':
-            case '9':
-                return Start::view($session);
-                break;
-
-            default:
-                return self::view($session);
-                break;
-        }
+        $this->sendInlineMessage($text, $keyboard);
     }
 }

@@ -2,71 +2,58 @@
 
 namespace Rtmvnv\AutodorBot\Commands;
 
+use Rtmvnv\AutodorBot\Config;
+use Rtmvnv\AutodorBot\Request;
+
 class Start extends Command
 {
-    public static function view($session)
+    public function view()
     {
-        $response = '<i>(прототип)</i>' . PHP_EOL;
-        $response .= 'Баланс транспондера: 748 руб.' . PHP_EOL;
-        $response .= 'Задолженность по ЦКАД: 347 руб.' . PHP_EOL;
-        $response .=  PHP_EOL;
-        $response .=  'Выберите действие' . PHP_EOL;
-        $response .= '/1 Транспондер' . PHP_EOL;
-        $response .= '/2 ЦКАД' . PHP_EOL;
-        $response .= '/3 Аварийный комиссар' . PHP_EOL;
-        $response .= '/4 Обратная связь' . PHP_EOL;
-        $response .= '/0 О сервисе' . PHP_EOL;
+        $this->chat->unsetAllCallbacks();
+
+        // Set "MyCommands" from config
+        $myCommandsConfig = Config::getMyCommands();
+        $myCommands = [];
+        foreach ($myCommandsConfig as $key => $value) {
+            $myCommands[] = [
+                'command' => $key,
+                'description' => $value->description,
+            ];
+            $this->chat->addGlobalCommand($key, $value->class, $value->context);
+        }
+        Request::setMyCommands($myCommands);
+
+        $text = '<b>Автодор</b>' . PHP_EOL;
+        $text .= '<i>Тестовый макет. Функциональность ограничена. Реальной обработки данных, списаний и зачислений не происходит.</i>' . PHP_EOL;
+
+        // Show transponder 1 balance
+        $account = 983247;
+        $balance = 420;
+        $text .= "Баланс транспондера {$account}: {$balance} руб." . PHP_EOL;
+
+        // Show transponder 2 balance
+        $account = 648304;
+        $balance = 328;
+        $text .= "Баланс транспондера {$account}: {$balance} руб." . PHP_EOL;
+
+        // Show Ckad debt
+        $text .= 'Задолженность по ЦКАД: <b>347 руб.</b>' . PHP_EOL;
 
         $keyboard = [
+            [$this->addInlineButton('Transponders', null)],
+            [$this->addInlineButton('Ckad', null)],
             [
-                ['text' => 'Транспондер'],
-                ['text' => 'ЦКАД'],
-            ], [
-                ['text' => 'Аварийный комиссар'],
-                ['text' => 'Обратная связь'],
+                $this->addInlineButton('Feedback', null),
+                $this->addInlineButton('Help', null),
             ],
+            [$this->addInlineButton('Emergency', null),],
         ];
-
-        return self::buildResponse($session, $response, $keyboard);
+        
+        $this->sendInlineMessage($text, $keyboard);
     }
 
-    public static function controller($session, $request)
+    public function handle($request)
     {
-        switch ($request) {
-            case 'Транспондер':
-            case '/1':
-            case '1':
-                return Transponder::view($session);
-                break;
-
-            case 'ЦКАД':
-            case '/2':
-            case '2':
-                return Ckad::view($session);
-                break;
-
-            case 'Аварийный комиссар':
-            case '/3':
-            case '3':
-                return Emergency::view($session);
-                break;
-
-            case 'Обратная связь':
-            case '/4':
-            case '4':
-                return Feedback::view($session);
-                break;
-
-            case 'О сервисе':
-            case '/help':
-            case '/0':
-            case '0':
-                return Help::view($session);
-                break;
-
-            default:
-                return self::view($session);
-                break;
-        }
+        $this->view();
     }
 }

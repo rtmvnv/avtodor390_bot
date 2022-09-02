@@ -1,5 +1,5 @@
 #!/bin/sh
-while :
+while true
 do
     php run_once.php
     sleep 1

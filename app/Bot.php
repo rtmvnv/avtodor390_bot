@@ -2,20 +2,16 @@
 
 namespace Rtmvnv\AutodorBot;
 
-use stdClass;
+use Rtmvnv\AutodorBot\Storage;
+use Rtmvnv\AutodorBot\Request;
 
 class Bot
 {
     protected $storage;
 
-    function __construct()
+    public function __construct()
     {
-        $this->storage = json_decode(@file_get_contents(getcwd() . DIRECTORY_SEPARATOR . 'storage.json'));
-        if (empty($this->storage)) {
-            $this->storage = new stdClass();
-            $this->storage->offset = 0;
-            $this->storage->chats = new stdClass();
-        }
+        $this->storage = new Storage();
     }
 
     public function runOnce()
@@ -24,122 +20,82 @@ class Bot
             $updates = $this->getUpdates();
 
             foreach ($updates as $update) {
-
-                if (isset($update['message'])) {
-                    $this->respondMessage($update);
-                } elseif (isset($update['callback_query']))
-                {
-                    $this->respondCallbackQuery($update);
-                }
-
+                $this->handleUpdate($update);
             }
         } catch (\Throwable $th) {
             echo 'EXCEPTION: ' . $th->getMessage() . ' (' . $th->getFile() . ':' . $th->getLine() . ')' . PHP_EOL . PHP_EOL;
         }
     }
 
-    protected function respondMessage($update)
+    protected function handleUpdate($update)
     {
-        $text = trim($update['message']['text']);
+        $this->storage->setOffset($update->update_id);
 
-        // echo json_encode($update, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL . PHP_EOL;
-        echo "NEW UPDATE: {$text}" . PHP_EOL . PHP_EOL;
-
-        $this->storage->offset = $update['update_id'];
-
-        // Get chat session data
-        $chatId = $update['message']['chat']['id'];
-        if (empty($this->storage->chats->$chatId)) {
-            $this->storage->chats->$chatId = new stdClass;
-            $this->storage->chats->$chatId->command = 'Start';
-            $this->storage->chats->$chatId->session = [];
+        if (isset($update->message)) {
+            $this->handleCommand($update);
+        } elseif (isset($update->callback_query)) {
+            $this->handleButton($update);
         }
-        $chat = $this->storage->chats->$chatId;
-
-        $this->writeStorage();
-
-        // Firstly process global commands
-        if ($text === '/start') {
-            $commandName = 'Start';
-        } elseif ($text === '0') {
-            $commandName = 'Start';
-        } elseif ($text === '/transponder') {
-            $commandName = 'Transponder';
-        } elseif ($text === '/ckad') {
-            $commandName = 'Ckad';
-        } elseif ($text === '/emergency') {
-            $commandName = 'Emergency';
-        } elseif ($text === '/feedback') {
-            $commandName = 'Feedback';
-        } elseif ($text === '/help') {
-            $commandName = 'Help';
-        } else {
-            $commandName = isset($chat->command) ? $chat->command : 'Start';
-        }
-
-        echo 'CALLING ' . $commandName . '::controller()' . PHP_EOL . PHP_EOL;
-        list(
-            $this->storage->chats->$chatId->session,
-            $this->storage->chats->$chatId->command,
-            $message,
-        ) = call_user_func(__NAMESPACE__ . '\\Commands\\' . $commandName . '::controller', $chat->session, $text);
-
-        $this->writeStorage();
-
-        $message['chat_id'] = $chatId;
-        $this->makeRequest('sendMessage', $message);
     }
 
-    protected function respondCallbackQuery($update)
+    protected function handleCommand($update)
     {
-        print_r($update);
+        $text = mb_strtolower(trim($update->message->text));
+
+        echo "INCOMING COMMAND: {$text}" . PHP_EOL . PHP_EOL;
+
+        // Get chat data
+        $chat = $this->storage->getChat($update->message->chat->id);
+
+        // Look for a global command
+        foreach ($chat->getGlobalCommands() as $key => $value) {
+            if (mb_strtolower($key) == $text or '/' . mb_strtolower($key) == $text) {
+                echo 'CALLING HANDLER ' . $value->class . PHP_EOL . PHP_EOL;
+                $handler = new ('\\Rtmvnv\\AutodorBot\\Commands\\' . $value->class)($chat, $value->context);
+                $handler->view($update->message->text);
+                $this->storage->setChat($chat);
+                return;
+            }
+        }
+
+        // Invoke the current command handler
+        if ($chat->getCurrentCommand() !== false) {
+            echo 'CALLING CURRENT ' . $chat->getCurrentCommandClass() . PHP_EOL . PHP_EOL;
+            $handler = new ($chat->getCurrentCommandClass())($chat, $chat->getCurrentCommandContext());
+            $handler->handle($update->message->text);
+            $this->storage->setChat($chat);
+            return;
+        }
     }
-    
-    protected function writeStorage()
+
+    protected function handleButton($update)
     {
-        $result = file_put_contents(
-            getcwd() . DIRECTORY_SEPARATOR . 'storage.json',
-            json_encode($this->storage, JSON_PRETTY_PRINT |  JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
-        );
-        echo 'SAVED STORAGE: ' . json_encode($this->storage, JSON_PRETTY_PRINT |  JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL . PHP_EOL;
+        echo 'INCOMING BUTTON CALLBACK: ' . Helpers::print_json($update, true) . PHP_EOL . PHP_EOL;
+
+        // Confirm Telegram that request is received
+        Request::answerCallbackQuery($update->callback_query->id);
+
+        $chat = $this->storage->getChat($update->callback_query->message->chat->id);
+
+        $text = mb_strtolower($update->callback_query->data);
+        foreach ($chat->getCallbacks() as $key => $value) {
+            if (mb_strtolower($key) == $text or '/' . mb_strtolower($key) == $text) {
+                // If callback is awaited
+                $class = $value->class;
+                echo 'exists: ' . $text . '; class name:' . $class . PHP_EOL;
+
+                $handler = new ('\\Rtmvnv\\AutodorBot\\Buttons\\' . $class)($chat, $value->context);
+                $handler->handle();
+                $this->storage->setChat($chat);
+                return;
+            }
+        }
+
+        echo 'does not exist: ' . $text . PHP_EOL;
     }
 
     protected function getUpdates()
     {
-        $data = [
-            'offset' => $this->storage->offset + 1,
-            'allowed_updates' => ['message', 'callback_query'],
-        ];
-        return $this->makeRequest('getUpdates', $data);
-    }
-
-    protected function makeRequest($command, $data = null)
-    {
-        // if ($command != 'getUpdates') {
-            echo 'REQUEST: ' . json_encode(['command' => $command, 'data' => $data], JSON_PRETTY_PRINT |  JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL . PHP_EOL;
-        // }
-
-        $token = $_ENV['TELEGRAM_TOKEN'];
-        $url = "https://api.telegram.org/bot{$token}/";
-
-        $client = new \GuzzleHttp\Client();
-        $response = $client->request('POST', $url . $command, [
-            'json' => $data,
-            'headers' => [
-                'Accept'     => 'application/json',
-            ]
-        ]);
-
-        if ($response->getStatusCode() != 200) {
-            throw new Exception("HTTP status code <> 200", 1);
-        }
-        $result = json_decode($response->getBody(), true, 100, JSON_THROW_ON_ERROR | JSON_OBJECT_AS_ARRAY);
-        if (!$result) {
-            throw new Exception("Can't decode JSON from result", 1);
-        }
-        if (!$result['ok']) {
-            throw new Exception("Result is not OK", 1);
-        }
-        return $result['result'];
+        return Request::getUpdates($this->storage->getOffset() + 1);
     }
 }

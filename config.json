@@ -1,0 +1,34 @@
+{
+    "my_commands": {
+        "start": {
+            "description": "Главное меню",
+            "class": "Start",
+            "context": null
+        },
+        "transponders": {
+            "description": "Транспондеры",
+            "class": "Transponders",
+            "context": null
+        },
+        "ckad": {
+            "description": "ЦКАД",
+            "class": "Ckad",
+            "context": null
+        },
+        "emergency": {
+            "description": "Вызов аварийного комиссара",
+            "class": "Emergency",
+            "context": null
+        },
+        "feedback": {
+            "description": "Обратная связь",
+            "class": "Feedback",
+            "context": null
+        },
+        "help": {
+            "description": "О сервисе",
+            "class": "Help",
+            "context": null
+        }
+    }
+}

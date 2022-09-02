@@ -2,53 +2,61 @@
 
 namespace Rtmvnv\AutodorBot\Commands;
 
+use Rtmvnv\AutodorBot\Chat;
+use Rtmvnv\AutodorBot\Request;
+
 abstract class Command
 {
-    public static function view($session)
-    {
-        $response = 'This command is not implemented yet';
-        $keyboard = [
-            [
-                ['text' => 'Button1'],
-                ['text' => 'Button2'],
-            ], [
-                ['text' => 'Button3'],
-            ],
-        ];
+    protected $chat;
+    protected $context;
 
-        return self::buildResponse($session, $response, $keyboard);
+    public function __construct(Chat $chat, $context)
+    {
+        $this->chat = $chat;
+        $this->context = (object)$context;
     }
 
-    public static function controller($session, $request)
+    public function view()
     {
-        return self::view($session);
     }
 
-    protected static function buildResponse($session, $text, $keyboard = [])
+    public function handle($request)
     {
-        $message = [
-            'text' => $text,
-            'reply_markup' => [],
-            'parse_mode' => 'HTML',
-        ];
 
-        if (empty($keyboard)) {
-            // $message['reply_markup']['remove_keyboard'] = true;
-        } else {
-            // $message['reply_markup']['resize_keyboard'] = true;
-            // $message['reply_markup']['one_time_keyboard'] = true;
-            // $message['reply_markup']['keyboard'] = $keyboard;
-            $message['reply_markup']['inline_keyboard'] = [
-                [
-                    ['text' => 'test', 'callback_data' => 'someString']
-                ]
-            ];
-        }
+    }
+
+    protected function addInlineButton($class, $context)
+    {
+        $button = new ('\\Rtmvnv\\AutodorBot\\Buttons\\' . $class)($this->chat, $context);
+        $this->chat->addCallback($button->callbackData(), $class, $context);
 
         return [
-            $session,
-            (new \ReflectionClass(get_called_class()))->getShortName(),
-            $message,
+            'text' => $button->caption(),
+            'callback_data' => $button->callbackData(),
         ];
+    }
+
+    protected function addReplyButton($caption)
+    {
+        return ['text' => $caption];
+    }
+
+    protected function addGlobalCommand($request, $class, $context)
+    {
+        $this->chat->addGlobalCommand($request, $class, $context);
+
+        return ['text' => $request];
+    }
+
+    protected function sendCommandMessage($text, $keyboard)
+    {
+        Request::sendCommandMessage($this->chat, $text, $keyboard);
+        $this->chat->setCurrentCommand((new \ReflectionClass($this))->getShortName(), $this->context);
+    }
+
+    protected function sendInlineMessage($text, $keyboard)
+    {
+        $this->chat->unsetCurrentCommand();
+        Request::sendInlineMessage($this->chat, $text, $keyboard);
     }
 }
