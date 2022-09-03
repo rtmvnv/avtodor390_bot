@@ -16,7 +16,19 @@ class TransponderSum extends Command
         $text .= PHP_EOL;
         $text .= 'Введите сумму от 100 руб.:' . PHP_EOL;
 
-        $this->sendCommandMessage($text, null);
+        $keyboard = [
+            [
+                $this->addReplyButton('200'),
+                $this->addReplyButton('500'),
+                $this->addReplyButton('1000'),
+            ], [
+                $this->addReplyButton('2000'),
+                $this->addReplyButton('3000'),
+                $this->addReplyButton('5000'),
+            ],
+        ];
+
+        $this->sendCommandMessage($text, $keyboard);
     }
 
     public function handle($request)
